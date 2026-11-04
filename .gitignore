@@ -1,0 +1,48 @@
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Python cache / compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Python tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Jupyter temporary files
+.ipynb_checkpoints/
+
+# IDE / editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Local environment / secrets
+.env
+.env.*
+
+# Downloaded raw Kaggle replay data
+# Keep raw data out of Git because the full dataset can become very large.
+data/raw/
+
+# Archives / downloaded dataset bundles
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+
+# Temporary files
+*.tmp
+*.temp
+*~
