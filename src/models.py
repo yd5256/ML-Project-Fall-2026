@@ -60,6 +60,20 @@ def main():
           full_model = train_logistic(train[full_features], y_train)
           full_predictions = full_model.predict(val[full_features])
           
+          # Examine feature coefficients at selected turns
+          if turn in [2, 4, 6, 8]:
+               coefficients = full_model.named_steps["logisticregression"].coef_[0]
+               
+               feature_weights = pd.Series(coefficients, index=full_features)
+               feature_weights = feature_weights.reindex(
+                    feature_weights.abs().sort_values(ascending=False).index
+               )
+               
+               print(f"\nTurn {turn} feature coefficients:")
+               print(feature_weights.round(3))
+               print()
+               
+          
           # Prize-card baseline predictions
           baseline_predictions = prize_baseline(
           val["p1_prizes_remaining"],
