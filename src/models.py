@@ -16,7 +16,6 @@ def train_logistic(X_train, y_train):
      Train a logistic regression model using game-state features. 
      """
      model = make_pipeline(StandardScaler(), LogisticRegression(max_iter=1000))
-     
      model.fit(X_train, y_train)
      
      return model
@@ -24,62 +23,48 @@ def train_logistic(X_train, y_train):
 def main():
      turn = 4
     
-     # Load mock data
+     # Load mock data and game splits
      df = pd.read_csv("data/mock/mock_game_states.csv")
-    
-     # Split by game
-     games = df["game_id"].unique().to_numpy()
-     rng = np.random.default_rng(42)
-     rng.shuffle(games)
+     splits = pd.read_csv("data/mock/mock_game_splits.csv")
+     
+     # Assign each game to its train/validation/test split
+     df = df.merge(splits, on="game_id")
+     
+     train = df[df["split"] == "train"]
+     val = df[df["split"] == "validation"]
+     test = df[df["split"] == "test"]
 
-     n_train = int(0.7 * len(games))
-     n_val = int(0.15 * len(games))
-
-     train_games = games[:n_train]
-     val_games = games[n_train:n_train + n_val]
-     test_games = games[n_train + n_val:]
-
-     train = df[df["game_id"].isin(train_games)]
-     val = df[df["game_id"].isin(val_games)]
-     test = df[df["game_id"].isin(test_games)]   
-      
-      
      # Select game states from the chosen turn
      train = train[train["turn"] == turn]
      val = val[val["turn"] == turn]
-     test = test[test["turn"] == turn] 
+     test = test[test["turn"] == turn]
      
      # Separate features and labels
-     exclude = ["game_id", "source_date", "turn", "p1_wins"]
+     exclude = ["game_id", "source_date", "turn", "p1_wins", "split"]
      features = [col for col in df.columns if col not in exclude]
      
      X_train = train[features]
      y_train = train["p1_wins"]
-     
+
      X_val = val[features]
      y_val = val["p1_wins"]
-     
-     # Train Logistic regression
+
+     # Train logistic regression
      model = train_logistic(X_train, y_train)
-     
+
      # Make predictions
      predictions = model.predict(X_val)
-     
+
      # Prize-card baseline predictions
      baseline_predictions = prize_baseline(
-         val["p1_prizes_remaining"],
-         val["p2_prizes_remaining"]
+          val["p1_prizes_remaining"],
+          val["p2_prizes_remaining"]
      )
-     
-     # Debugging statements 
-     # print("Training examples:", len(X_train))
-     # print("Validation examples:", len(X_val))
-     # print("Actual winners:", y_val.to_numpy())
-     # print("Logistic predictions:", predictions)
-     # print("Baseline predictions:", baseline_predictions)
-     # print(val[["p1_prizes_remaining", "p2_prizes_remaining"]])
-     # print("Features used:", features)
-     
+
+     print("Training examples:", len(train))
+     print("Validation examples:", len(val))
+     print("Test examples:", len(test))
+
      # Compare validation accuracy
      print("Turn:", turn)
      print("Logistic regression accuracy:", np.mean(predictions == y_val))
