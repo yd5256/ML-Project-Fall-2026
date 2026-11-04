@@ -30,9 +30,11 @@ def main():
      # Assign each game to its train/validation/test split
      df = df.merge(splits, on="game_id", validate="many_to_one")
      
-     # Separate features and labels
+     # Define feature sets
+     prize_features = ["p1_prizes_remaining", "p2_prizes_remaining"]
+     
      exclude = ["game_id", "source_date", "turn", "p1_wins", "split"]
-     features = [col for col in df.columns if col not in exclude]
+     full_features = [col for col in df.columns if col not in exclude]
      
      # Evaluate each turn
      for turn in turns:
@@ -45,32 +47,34 @@ def main():
                print(f"Turn {turn}: Not enough data")
                continue
 
-          X_train = train[features]
+          # Labels
           y_train = train["p1_wins"]
-
-          X_val = val[features]
           y_val = val["p1_wins"]
-
-          # Train logistic regression
-          model = train_logistic(X_train, y_train)
-
-          # Make predictions
-          predictions = model.predict(X_val)
-
+          
+          # Train Prize-only logistic regression
+          prize_model = train_logistic(train[prize_features], y_train)
+          prize_predictions = prize_model.predict(val[prize_features])
+          
+          # Train full-feature logistic regression
+          full_model = train_logistic(train[full_features], y_train)
+          full_predictions = full_model.predict(val[full_features])
+          
           # Prize-card baseline predictions
           baseline_predictions = prize_baseline(
-               val["p1_prizes_remaining"],
-               val["p2_prizes_remaining"]
+          val["p1_prizes_remaining"],
+          val["p2_prizes_remaining"]
           )
-          
+               
           # Compare validation accuracy
-          logistic_accuracy = np.mean(predictions == y_val)
           baseline_accuracy = np.mean(baseline_predictions == y_val)
+          prize_accuracy = np.mean(prize_predictions == y_val)
+          full_accuracy = np.mean(full_predictions == y_val)
           
           print(f"Turn: {turn}")
           print(f"Validation examples: {len(val)}")
-          print(f"Logistic regression accuracy: {logistic_accuracy:.3f}")
           print(f"Prize baseline accuracy: {baseline_accuracy:.3f}")
+          print(f"Prize-only logistic accuracy: {prize_accuracy:.3f}")
+          print(f"Full-feature logistic accuracy: {full_accuracy:.3f}")
           print()
           
 
