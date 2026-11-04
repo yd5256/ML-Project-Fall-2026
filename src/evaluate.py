@@ -22,11 +22,7 @@ SPLIT_RATIOS = {"train": 0.70, "validation": 0.15, "test": 0.15}
 SPLIT_NAMES = ["train", "validation", "test"]
 SEED = 42  # fixed so everyone gets the same split every time
 
-
-# ---------------------------------------------------------------------------
-# 1. Game-level split
-# ---------------------------------------------------------------------------
-
+# game splits
 def make_game_split(states, ratios=SPLIT_RATIOS, seed=SEED):
     # assign each game to train validate or test
     game_ids = np.sort(states["game_id"].unique())  # sort first so the seed is reproducible
@@ -110,11 +106,7 @@ def summarize_split(states, splits):
     })
     return summary.reindex(["train", "validation", "test"])
 
-
-# ---------------------------------------------------------------------------
-# 2. Metrics (confusion matrix, accuracy, precision, recall, F1)
-# ---------------------------------------------------------------------------
-
+# metrics
 def confusion_counts(y_true, y_pred, positive=1):
     # counts of TP, FP, FN, TN, given a positive = p1 win
     y_true = np.asarray(y_true)
@@ -174,75 +166,13 @@ def _check(condition, message):
         raise AssertionError(message)
 
 
-def selftest():
-    # "An Imbalanced Example": TP=5, TN=90, FP=0, FN=5
-    y_true = np.array([1] * 10 + [0] * 90)
-    y_pred = np.array([1] * 5 + [0] * 5 + [0] * 90)
-    m = classification_metrics(y_true, y_pred)
-
-    _check((m["tp"], m["tn"], m["fp"], m["fn"]) == (5, 90, 0, 5), "(m['tp'], m['tn'], m['fp'], m['fn']) == (5, 90, 0, 5)")
-    _check(np.isclose(m["accuracy"], 0.95), "np.isclose(m['accuracy'], 0.95)")
-    _check(np.isclose(m["precision"], 1.0), "np.isclose(m['precision'], 1.0)")
-    _check(np.isclose(m["recall"], 0.5), "np.isclose(m['recall'], 0.5)")
-    _check(np.isclose(m["f1"], 2 / 3), "np.isclose(m['f1'], 2 / 3)")
-    print("Lecture 5 example: OK  ", {k: round(v, 3) for k, v in m.items() if isinstance(v, float)})
-
-    # Random predictions: compare against sklearn if it is installed
-    try:
-        from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
-    except ImportError:
-        raise SystemExit("sklearn not installed, so the cross-check cannot run (pip install scikit-learn)")
-
-    # undefined precision must be NaN, not 0
-    m = classification_metrics([1, 0], [0, 0])
-    _check(np.isnan(m["precision"]) and m["recall"] == 0.0, "undefined precision should be NaN")
-    try:
-        classification_metrics([1, 0], [0.9, 0.2])
-    except ValueError:
-        pass
-    else:
-        raise AssertionError("probabilities should be rejected as y_pred")
-    rng = np.random.default_rng(0)
-    y_true = rng.integers(0, 2, 500)
-    y_pred = rng.integers(0, 2, 500)
-    m = classification_metrics(y_true, y_pred)
-    _check(np.isclose(m["accuracy"], accuracy_score(y_true, y_pred)), "np.isclose(m['accuracy'], accuracy_score(y_true, y_pred))")
-    _check(np.isclose(m["precision"], precision_score(y_true, y_pred)), "np.isclose(m['precision'], precision_score(y_true, y_pred))")
-    _check(np.isclose(m["recall"], recall_score(y_true, y_pred)), "np.isclose(m['recall'], recall_score(y_true, y_pred))")
-    _check(np.isclose(m["f1"], f1_score(y_true, y_pred)), "np.isclose(m['f1'], f1_score(y_true, y_pred))")
-    _check(np.isclose(m["macro_f1"], f1_score(y_true, y_pred, average="macro")), "np.isclose(m['macro_f1'], f1_score(y_true, y_pred, average='macro'))")
-    print("sklearn cross-check: OK")
-
-
-# ---------------------------------------------------------------------------
-# Command line
-# ---------------------------------------------------------------------------
-
-def main(argv=None):
-    parser = argparse.ArgumentParser(description="Evaluation tools")
-    sub = parser.add_subparsers(dest="command", required=True)
-
-    p_split = sub.add_parser("split", help="create the game-level train/validation/test split")
-    p_split.add_argument("--states", default=MOCK_STATES)
-    p_split.add_argument("--out", default=MOCK_SPLITS)
-    p_split.add_argument("--seed", type=int, default=SEED)
-
-    sub.add_parser("selftest", help="check metric functions")
-
-    args = parser.parse_args(argv)
-
-    if args.command == "split":
-        states = pd.read_csv(args.states)
-        check_states(states)
-        splits = make_game_split(states, seed=args.seed)
-        check_split(states, splits)
-        Path(args.out).parent.mkdir(parents=True, exist_ok=True)
-        splits.to_csv(args.out, index=False)
-        print(f"Wrote {args.out}\n")
-        print(summarize_split(states, splits).to_string())
-    elif args.command == "selftest":
-        selftest()
-
-
+# run: python src/evaluate.py  (creates the game-level split)
+# for the real data, change MOCK_STATES / MOCK_SPLITS at the top to the data/processed/ paths
 if __name__ == "__main__":
-    sys.exit(main())
+    states = pd.read_csv(MOCK_STATES)
+    check_states(states)
+    splits = make_game_split(states)
+    check_split(states, splits)
+    splits.to_csv(MOCK_SPLITS, index=False)
+    print(f"Wrote {MOCK_SPLITS}\n")
+    print(summarize_split(states, splits))
