@@ -21,14 +21,15 @@ def train_logistic(X_train, y_train):
      return model
  
 def main():
-     turns = [2, 4, 6, 8]
-    
      # Load mock data and game splits
      df = pd.read_csv("data/mock/mock_game_states.csv")
      splits = pd.read_csv("data/mock/mock_game_splits.csv")
      
      # Assign each game to its train/validation/test split
      df = df.merge(splits, on="game_id", validate="many_to_one")
+     
+     # Get all available turns
+     turns = sorted(df["turn"].unique())
      
      # Define feature sets
      prize_features = ["p1_prizes_remaining", "p2_prizes_remaining"]
@@ -71,6 +72,7 @@ def main():
           full_accuracy = np.mean(full_predictions == y_val)
           
           print(f"Turn: {turn}")
+          print(f"Training examples: {len(train)}")
           print(f"Validation examples: {len(val)}")
           print(f"Prize baseline accuracy: {baseline_accuracy:.3f}")
           print(f"Prize-only logistic accuracy: {prize_accuracy:.3f}")
