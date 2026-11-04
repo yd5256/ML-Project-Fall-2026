@@ -28,13 +28,7 @@ SEED = 42  # fixed so everyone gets the same split every time
 # ---------------------------------------------------------------------------
 
 def make_game_split(states, ratios=SPLIT_RATIOS, seed=SEED):
-    """
-    Assign every *game* (not every row) to train, validation, or test.
-
-    All snapshots from one game share a winner and are strongly correlated,
-    so splitting by row would leak information about test games into training.
-    Returns a DataFrame with columns: game_id, split
-    """
+    # assign each game to train validate or test
     game_ids = np.sort(states["game_id"].unique())  # sort first so the seed is reproducible
     rng = np.random.default_rng(seed)
     shuffled = rng.permutation(game_ids)
@@ -50,7 +44,7 @@ def make_game_split(states, ratios=SPLIT_RATIOS, seed=SEED):
 
 
 def check_states(states):
-    """Raise an error if the game-state table breaks the data contract."""
+    # error checking incoming data for usability
     required = {"game_id", "turn", "p1_wins", "p1_prizes_remaining", "p2_prizes_remaining"}
     missing = required - set(states.columns)
     if missing:
@@ -75,8 +69,7 @@ def check_states(states):
 
 
 def check_split(states, splits, ratios=SPLIT_RATIOS):
-    """Raise an error if the split is invalid; otherwise return nothing."""
-    # only known split names
+    # error checking invalid splits
     bad = set(splits["split"]) - set(SPLIT_NAMES)
     if bad:
         raise ValueError(f"Unknown split names: {sorted(bad)}")
@@ -98,7 +91,7 @@ def check_split(states, splits, ratios=SPLIT_RATIOS):
     if (merged.groupby("game_id")["split"].nunique() > 1).any():
         raise ValueError("Rows from the same game ended up in different splits.")
 
-    # group sizes must match the requested ratios (within one game of rounding)
+    # group sizes match 70/15/15
     n = len(splits)
     counts = splits["split"].value_counts()
     for name in SPLIT_NAMES:
@@ -107,7 +100,7 @@ def check_split(states, splits, ratios=SPLIT_RATIOS):
 
 
 def summarize_split(states, splits):
-    """Per split: number of games, number of rows, and Player 1 win rate."""
+    # per split - number of games, number of rows, and Player 1 win rate
     merged = states.merge(splits, on="game_id")
     per_game = merged.groupby("game_id").agg(split=("split", "first"), p1_wins=("p1_wins", "first"))
     summary = pd.DataFrame({
@@ -123,9 +116,7 @@ def summarize_split(states, splits):
 # ---------------------------------------------------------------------------
 
 def confusion_counts(y_true, y_pred, positive=1):
-    """
-    Count TP, FP, FN, TN. By default 'positive' = Player 1 wins (p1_wins == 1).
-    """
+    # counts of TP, FP, FN, TN, given a positive = p1 win
     y_true = np.asarray(y_true)
     y_pred = np.asarray(y_pred)
     if y_true.shape != y_pred.shape:
@@ -151,13 +142,7 @@ def _safe_divide(numerator, denominator):
 
 
 def classification_metrics(y_true, y_pred, positive=1):
-    """
-    Accuracy, precision, recall, and F1 with 'positive' as the positive class.
-
-    Also returns F1 with the *other* class as positive and the average of the
-    two (macro F1), because P1/P2 are symmetric outcomes and precision/recall
-    for one side alone only describe how well we predict that side's wins.
-    """
+    # accuracy, precision, recall, and F1
     c = confusion_counts(y_true, y_pred, positive)
     tp, fp, fn, tn = c["tp"], c["fp"], c["fn"], c["tn"]
 
@@ -190,8 +175,7 @@ def _check(condition, message):
 
 
 def selftest():
-    """Check the metric code against Lecture 5's imbalanced example (and sklearn if installed)."""
-    # Lecture 5, "An Imbalanced Example": TP=5, TN=90, FP=0, FN=5
+    # "An Imbalanced Example": TP=5, TN=90, FP=0, FN=5
     y_true = np.array([1] * 10 + [0] * 90)
     y_pred = np.array([1] * 5 + [0] * 5 + [0] * 90)
     m = classification_metrics(y_true, y_pred)
