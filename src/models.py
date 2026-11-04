@@ -21,55 +21,58 @@ def train_logistic(X_train, y_train):
      return model
  
 def main():
-     turn = 4
+     turns = [2, 4, 6, 8]
     
      # Load mock data and game splits
      df = pd.read_csv("data/mock/mock_game_states.csv")
      splits = pd.read_csv("data/mock/mock_game_splits.csv")
      
      # Assign each game to its train/validation/test split
-     df = df.merge(splits, on="game_id")
-     
-     train = df[df["split"] == "train"]
-     val = df[df["split"] == "validation"]
-     test = df[df["split"] == "test"]
-
-     # Select game states from the chosen turn
-     train = train[train["turn"] == turn]
-     val = val[val["turn"] == turn]
-     test = test[test["turn"] == turn]
+     df = df.merge(splits, on="game_id", validate="many_to_one")
      
      # Separate features and labels
      exclude = ["game_id", "source_date", "turn", "p1_wins", "split"]
      features = [col for col in df.columns if col not in exclude]
      
-     X_train = train[features]
-     y_train = train["p1_wins"]
+     # Evaluate each turn
+     for turn in turns:
+          turn_data = df[df["turn"] == turn]
+          
+          train = turn_data[turn_data["split"] == "train"]
+          val = turn_data[turn_data["split"] == "validation"]
+          
+          if train["p1_wins"].nunique() < 2 or len(val) == 0:
+               print(f"Turn {turn}: Not enough data")
+               continue
 
-     X_val = val[features]
-     y_val = val["p1_wins"]
+          X_train = train[features]
+          y_train = train["p1_wins"]
 
-     # Train logistic regression
-     model = train_logistic(X_train, y_train)
+          X_val = val[features]
+          y_val = val["p1_wins"]
 
-     # Make predictions
-     predictions = model.predict(X_val)
+          # Train logistic regression
+          model = train_logistic(X_train, y_train)
 
-     # Prize-card baseline predictions
-     baseline_predictions = prize_baseline(
-          val["p1_prizes_remaining"],
-          val["p2_prizes_remaining"]
-     )
+          # Make predictions
+          predictions = model.predict(X_val)
 
-     print("Training examples:", len(train))
-     print("Validation examples:", len(val))
-     print("Test examples:", len(test))
-
-     # Compare validation accuracy
-     print("Turn:", turn)
-     print("Logistic regression accuracy:", np.mean(predictions == y_val))
-     print("Prize baseline accuracy:", np.mean(baseline_predictions == y_val))
-    
+          # Prize-card baseline predictions
+          baseline_predictions = prize_baseline(
+               val["p1_prizes_remaining"],
+               val["p2_prizes_remaining"]
+          )
+          
+          # Compare validation accuracy
+          logistic_accuracy = np.mean(predictions == y_val)
+          baseline_accuracy = np.mean(baseline_predictions == y_val)
+          
+          print(f"Turn: {turn}")
+          print(f"Validation examples: {len(val)}")
+          print(f"Logistic regression accuracy: {logistic_accuracy:.3f}")
+          print(f"Prize baseline accuracy: {baseline_accuracy:.3f}")
+          print()
+          
 
 if __name__ == "__main__":
     main()
