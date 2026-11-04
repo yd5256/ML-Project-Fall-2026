@@ -2,14 +2,12 @@ import csv
 import json
 from pathlib import Path
 
+# Current state: preprocesses one JSON file and adds it to the game_states.csv file
 
 REPLAY_PATH = Path("data/raw/sample/94733726.json")
 OUTPUT_PATH = Path("data/processed/game_states.csv")
 
-# Change this to the date of the Kaggle daily dataset
-# that you downloaded this replay from.
-SOURCE_DATE = "2026-08-18"
-
+SOURCE_DATE = "2026-08-20"
 
 def get_player_features(player):
     active = [
