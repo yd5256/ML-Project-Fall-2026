@@ -1,30 +1,57 @@
 import csv
 import json
+import re
 from pathlib import Path
 
-# Current state: preprocesses one JSON file and adds it to the game_states.csv file
 
-REPLAY_PATH = Path("data/raw/sample/94733726.json")
+INPUT_DIR = Path("data/raw")
 OUTPUT_PATH = Path("data/processed/game_states.csv")
 
-SOURCE_DATE = "2026-08-20"
+
+FIELDNAMES = [
+    "game_id",
+    "source_date",
+    "turn",
+    "p1_went_first",
+    "p1_prizes_remaining",
+    "p2_prizes_remaining",
+    "p1_hand_size",
+    "p2_hand_size",
+    "p1_deck_size",
+    "p2_deck_size",
+    "p1_pokemon_in_play",
+    "p2_pokemon_in_play",
+    "p1_active_hp",
+    "p2_active_hp",
+    "p1_total_hp",
+    "p2_total_hp",
+    "p1_total_energy",
+    "p2_total_energy",
+    "p1_active_has_status",
+    "p2_active_has_status",
+    "p1_wins",
+]
+
 
 def get_player_features(player):
     active = [
         pokemon
-        for pokemon in player.get("active", [])
+        for pokemon in (player.get("active") or [])
         if isinstance(pokemon, dict)
     ]
 
     bench = [
         pokemon
-        for pokemon in player.get("bench", [])
+        for pokemon in (player.get("bench") or [])
         if isinstance(pokemon, dict)
     ]
 
     pokemon_in_play = active + bench
 
-    active_hp = active[0].get("hp", 0) if active else 0
+    if active:
+        active_hp = active[0].get("hp", 0)
+    else:
+        active_hp = 0
 
     total_hp = sum(
         pokemon.get("hp", 0)
@@ -32,7 +59,7 @@ def get_player_features(player):
     )
 
     total_energy = sum(
-        len(pokemon.get("energyCards", []))
+        len(pokemon.get("energyCards") or [])
         for pokemon in pokemon_in_play
     )
 
@@ -45,7 +72,7 @@ def get_player_features(player):
     )
 
     return {
-        "prizes_remaining": len(player.get("prize", [])),
+        "prizes_remaining": len(player.get("prize") or []),
         "hand_size": player.get("handCount", 0),
         "deck_size": player.get("deckCount", 0),
         "pokemon_in_play": len(pokemon_in_play),
@@ -57,7 +84,7 @@ def get_player_features(player):
 
 
 def get_winner(replay):
-    rewards = replay.get("rewards", [])
+    rewards = replay.get("rewards")
 
     if rewards == [1, -1]:
         return 1
@@ -65,12 +92,32 @@ def get_winner(replay):
     if rewards == [-1, 1]:
         return 0
 
-    # Draws or unusual/incomplete games are not usable
-    # for our binary classification problem.
+    # Draw, incomplete game, or other unusual result
     return None
 
 
-def process_replay(replay):
+def get_source_date(path):
+    # Look through the folders in the path for a YYYY-MM-DD folder.
+    for parent in path.parents:
+        if re.fullmatch(r"\d{4}-\d{2}-\d{2}", parent.name):
+            return parent.name
+
+    return "unknown"
+
+
+def get_frames(replay):
+    # Prefer the canonical visualization states.
+    for step in replay.get("steps", []):
+        for player_view in step:
+            visualize = player_view.get("visualize")
+
+            if isinstance(visualize, list) and visualize:
+                return visualize
+
+    return []
+
+
+def process_replay(replay, source_date):
     p1_wins = get_winner(replay)
 
     if p1_wins is None:
@@ -81,15 +128,15 @@ def process_replay(replay):
         replay.get("id")
     )
 
-    visualizer = replay["steps"][0][0].get("visualize")
+    frames = get_frames(replay)
 
-    if not isinstance(visualizer, list):
+    if not frames:
         return []
 
     rows = []
     seen_turns = set()
 
-    for frame in visualizer:
+    for frame in frames:
         current = frame.get("current")
 
         if not isinstance(current, dict):
@@ -97,11 +144,11 @@ def process_replay(replay):
 
         turn = current.get("turn", 0)
 
-        # Skip setup states before the actual game starts.
+        # Skip setup before the actual match begins.
         if turn < 1:
             continue
 
-        # We only want the first state from each game turn.
+        # Only keep one snapshot for each game turn.
         if turn in seen_turns:
             continue
 
@@ -110,18 +157,19 @@ def process_replay(replay):
         if len(players) != 2:
             continue
 
-        seen_turns.add(turn)
+        first_player = current.get("firstPlayer")
+
+        if first_player not in (0, 1):
+            continue
 
         p1 = get_player_features(players[0])
         p2 = get_player_features(players[1])
 
         row = {
             "game_id": game_id,
-            "source_date": SOURCE_DATE,
+            "source_date": source_date,
             "turn": turn,
-            "p1_went_first": int(
-                current.get("firstPlayer") == 0
-            ),
+            "p1_went_first": int(first_player == 0),
 
             "p1_prizes_remaining": p1["prizes_remaining"],
             "p2_prizes_remaining": p2["prizes_remaining"],
@@ -151,32 +199,60 @@ def process_replay(replay):
         }
 
         rows.append(row)
+        seen_turns.add(turn)
 
     return rows
 
 
-with open(REPLAY_PATH, "r", encoding="utf-8") as f:
-    replay = json.load(f)
+def main():
+    json_files = sorted(INPUT_DIR.rglob("*.json"))
 
-rows = process_replay(replay)
+    print(f"Found {len(json_files)} replay files.")
 
-OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    all_rows = []
+    processed_games = 0
+    skipped_games = 0
 
-if rows:
+    for path in json_files:
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                replay = json.load(f)
+
+            source_date = get_source_date(path)
+            rows = process_replay(replay, source_date)
+
+            if rows:
+                all_rows.extend(rows)
+                processed_games += 1
+            else:
+                print(f"Skipped unusable game: {path}")
+                skipped_games += 1
+
+        except (json.JSONDecodeError, OSError, TypeError, KeyError) as error:
+            print(f"Could not process {path}: {error}")
+            skipped_games += 1
+
+    if not all_rows:
+        print("No usable games were found.")
+        return
+
+    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
+
     with open(OUTPUT_PATH, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(
             f,
-            fieldnames=rows[0].keys()
+            fieldnames=FIELDNAMES
         )
 
         writer.writeheader()
-        writer.writerows(rows)
+        writer.writerows(all_rows)
 
-    print(
-        f"Processed {len(rows)} turns "
-        f"from game {rows[0]['game_id']}."
-    )
-    print(f"Saved to {OUTPUT_PATH}")
+    print()
+    print(f"Processed games: {processed_games}")
+    print(f"Skipped games: {skipped_games}")
+    print(f"Total rows: {len(all_rows)}")
+    print(f"Saved to: {OUTPUT_PATH}")
 
-else:
-    print("Replay could not be processed.")
+
+if __name__ == "__main__":
+    main()
