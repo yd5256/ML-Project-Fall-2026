@@ -155,7 +155,7 @@ def main():
                     depth_rows.append({
                          "turn": turn,
                          "depth": depth,
-                         "train_accuracy": val_accuracy,
+                         "train_accuracy": train_accuracy,
                          "validation_accuracy": val_accuracy
                     })
                     
