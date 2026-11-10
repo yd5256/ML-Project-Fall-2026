@@ -21,6 +21,24 @@ def train_logistic(X_train, y_train):
      
      return model
 
+def train_l1_logistic(X_train, y_train):
+     """
+     Train logistic regression using L1 regularization
+     """
+     model = make_pipeline(
+          StandardScaler(),
+          LogisticRegression(
+               l1_ratio=1.0,
+               solver="liblinear",
+               C=1.0,
+               max_iter=1000,
+               random_state=42
+          )
+     )
+     model.fit(X_train, y_train)
+     
+     return model
+
 def train_tree(X_train, y_train, max_depth=3):
      """
      Train a decision tree classifier using game-state features.
@@ -71,6 +89,10 @@ def main():
           full_model = train_logistic(train[full_features], y_train)
           full_predictions = full_model.predict(val[full_features])
           
+          # Train L1-regularized logistic regression
+          l1_model = train_l1_logistic(train[full_features], y_train)
+          l1_predictions = l1_model.predict(val[full_features])
+          
           # Train decision tree
           tree_model = train_tree(train[full_features], y_train)
           tree_predictions = tree_model.predict(val[full_features])
@@ -99,6 +121,7 @@ def main():
           prize_accuracy = np.mean(prize_predictions == y_val)
           full_accuracy = np.mean(full_predictions == y_val)
           tree_accuracy = np.mean(tree_predictions == y_val)
+          l1_accuracy = np.mean(l1_predictions == y_val)
           
           print(f"Turn: {turn}")
           print(f"Training examples: {len(train)}")
@@ -107,6 +130,7 @@ def main():
           print(f"Prize-only logistic accuracy: {prize_accuracy:.3f}")
           print(f"Full-feature logistic accuracy: {full_accuracy:.3f}")
           print(f"Decision tree accuracy: {tree_accuracy:.3f}")
+          print(f"L1 logistic accuracy: {l1_accuracy:.3f}")
           print()
           
           # Compare decision tree depths at selected turns
@@ -137,7 +161,20 @@ def main():
                print(importances.head(5).round(3))
                print()
                
-          
-
+          if turn in [2, 4, 6, 8, 10, 12, 14]:
+               coefficients = l1_model.named_steps["logisticregression"].coef_[0]
+               
+               zero_features = [
+                    feature
+                    for feature, weight in zip(full_features, coefficients)
+                    if weight == 0
+               ]
+               
+               print(f"Turn {turn} L1 feature selection: ")
+               print(f"Nonzero features: {len(full_features) - len(zero_features)}/{len(full_features)}")
+               print(f"Zero-weight features: {zero_features}")
+               print()
+               
+               
 if __name__ == "__main__":
     main()
