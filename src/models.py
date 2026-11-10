@@ -1,3 +1,22 @@
+"""
+models.py — Model training and experiments for Pokémon TCG winner prediction.
+Owner: Dominic
+
+What is in here:
+  1. Prize-card baseline
+  2. Logistic regression (L2 and L1 regularization)
+  3. Decision tree classifier
+  4. Per-turn validation accuracy comparisons
+  5. Feature coefficient and importance analysis
+  6. Decision tree depth and L1 regularization experiments
+  7. Feature ablation experiments
+
+Run from the repository root:
+  python3 src/models.py
+
+Results are saved in results/.
+"""
+
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -77,6 +96,21 @@ def main():
      # Turns used for detailed analysis
      selected_turns = [2, 4, 6, 8, 10, 12, 14]
      
+     # Feature groups for ablation experiments
+     feature_groups = {
+          "prizes": ["p1_prizes_remaining", "p2_prizes_remaining"],
+          "hp": ["p1_active_hp", "p2_active_hp",
+                 "p1_total_hp", "p2_total_hp"],
+          "energy": ["p1_total_energy", "p2_total_energy"],
+          "hand_deck": ["p1_hand_size", "p2_hand_size",
+                        "p1_deck_size", "p2_deck_size"],
+          "pokemon_count": ["p1_pokemon_in_play", "p2_pokemon_in_play"],
+          "status": ["p1_active_has_status", "p2_active_has_status"],
+          "went_first": ["p1_went_first"]
+     }
+
+     ablation_rows = []
+     
      # Evaluate each turn
      for turn in turns:
           turn_data = df[df["turn"] == turn]
@@ -144,6 +178,33 @@ def main():
                "decision_tree": tree_accuracy
           })
           
+          # Feature ablation experiments
+          if turn in selected_turns:
+               for group, removed_features in feature_groups.items():
+
+                    # Keep all features except the selected group
+                    remaining_features = [
+                         feature for feature in full_features
+                         if feature not in removed_features
+                    ]
+
+                    # Retrain without the selected features
+                    ablated_model = train_logistic(
+                         train[remaining_features], y_train
+                    )
+
+                    ablated_accuracy = ablated_model.score(
+                         val[remaining_features], y_val
+                    )
+
+                    ablation_rows.append({
+                         "turn": turn,
+                         "removed_group": group,
+                         "full_accuracy": full_accuracy,
+                         "ablated_accuracy": ablated_accuracy,
+                         "accuracy_drop": full_accuracy - ablated_accuracy
+                    })
+          
           # Compare decision tree depths
           if turn in selected_turns:
                for depth in [2, 3, 4, 5, 6]:
@@ -204,6 +265,7 @@ def main():
      pd.DataFrame(importance_rows).to_csv(results_dir / "tree_importance.csv", index=False)
      pd.DataFrame(depth_rows).to_csv(results_dir / "tree_depth_comparison.csv", index=False)
      pd.DataFrame(l1_rows).to_csv(results_dir / "l1_regularization.csv", index=False)
+     pd.DataFrame(ablation_rows).to_csv(results_dir / "feature_ablation.csv", index=False)
      
      # Print accuracy summary
      print("\nValidation accuracy by turn:")
