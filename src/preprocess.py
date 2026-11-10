@@ -1,3 +1,22 @@
+"""
+preprocess.py — Data preprocessing for Pokémon TCG winner prediction.
+Owner: Yavuz
+
+What is in here:
+  1. Load raw Pokémon TCG replay JSON files
+  2. Identify the winner of each game
+  3. Extract one game-state snapshot per turn
+  4. Extract player features such as prizes, hand/deck size, HP, Energy, and status
+  5. Skip draws or unusable replay files
+  6. Combine all usable games into one processed dataset
+  7. Save the processed data to data/processed/game_states.csv
+
+Run from the repository root:
+  python3 src/preprocess.py
+
+Processed data is saved in data/processed/.
+"""
+
 import csv
 import json
 import re
