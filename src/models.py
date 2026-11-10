@@ -3,6 +3,7 @@ import pandas as pd
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
+from sklearn.tree import DecisionTreeClassifier
 
 def prize_baseline(p1_prizes, p2_prizes):
      """
@@ -19,6 +20,16 @@ def train_logistic(X_train, y_train):
      model.fit(X_train, y_train)
      
      return model
+
+def train_tree(X_train, y_train):
+     """
+     Train a decision tree classifier using game-state features.
+     """
+     model = DecisionTreeClassifier(max_depth=3, random_state=42)
+     model.fit(X_train, y_train)
+     
+     return model
+     
  
 def main():
      # Load processed game states
@@ -60,6 +71,10 @@ def main():
           full_model = train_logistic(train[full_features], y_train)
           full_predictions = full_model.predict(val[full_features])
           
+          # Train decision tree
+          tree_model = train_tree(train[full_features], y_train)
+          tree_predictions = tree_model.predict(val[full_features])
+          
           # Examine feature coefficients at selected turns
           if turn in [2, 4, 6, 8]:
                coefficients = full_model.named_steps["logisticregression"].coef_[0]
@@ -84,6 +99,7 @@ def main():
           baseline_accuracy = np.mean(baseline_predictions == y_val)
           prize_accuracy = np.mean(prize_predictions == y_val)
           full_accuracy = np.mean(full_predictions == y_val)
+          tree_accuracy = np.mean(tree_predictions == y_val)
           
           print(f"Turn: {turn}")
           print(f"Training examples: {len(train)}")
@@ -91,6 +107,7 @@ def main():
           print(f"Prize baseline accuracy: {baseline_accuracy:.3f}")
           print(f"Prize-only logistic accuracy: {prize_accuracy:.3f}")
           print(f"Full-feature logistic accuracy: {full_accuracy:.3f}")
+          print(f"Decision tree accuracy: {tree_accuracy:.3f}")
           print()
           
 
