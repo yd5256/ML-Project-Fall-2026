@@ -1,0 +1,29 @@
+turn,C,validation_accuracy,nonzero_features,zero_features
+2,0.01,0.49333333333333335,0,p1_went_first; p1_prizes_remaining; p2_prizes_remaining; p1_hand_size; p2_hand_size; p1_deck_size; p2_deck_size; p1_pokemon_in_play; p2_pokemon_in_play; p1_active_hp; p2_active_hp; p1_total_hp; p2_total_hp; p1_total_energy; p2_total_energy; p1_active_has_status; p2_active_has_status
+2,0.1,0.48,7,p1_went_first; p1_prizes_remaining; p2_prizes_remaining; p1_hand_size; p1_pokemon_in_play; p2_pokemon_in_play; p2_total_hp; p2_total_energy; p1_active_has_status; p2_active_has_status
+2,1.0,0.46,12,p1_prizes_remaining; p2_prizes_remaining; p2_active_hp; p1_active_has_status; p2_active_has_status
+2,10.0,0.44666666666666666,12,p1_prizes_remaining; p2_prizes_remaining; p1_active_hp; p1_active_has_status; p2_active_has_status
+4,0.01,0.4966442953020134,0,p1_went_first; p1_prizes_remaining; p2_prizes_remaining; p1_hand_size; p2_hand_size; p1_deck_size; p2_deck_size; p1_pokemon_in_play; p2_pokemon_in_play; p1_active_hp; p2_active_hp; p1_total_hp; p2_total_hp; p1_total_energy; p2_total_energy; p1_active_has_status; p2_active_has_status
+4,0.1,0.5436241610738255,9,p1_went_first; p2_deck_size; p1_pokemon_in_play; p2_active_hp; p1_total_hp; p2_total_hp; p1_total_energy; p2_active_has_status
+4,1.0,0.5369127516778524,16,p1_total_hp
+4,10.0,0.5570469798657718,17,
+6,0.01,0.49324324324324326,0,p1_went_first; p1_prizes_remaining; p2_prizes_remaining; p1_hand_size; p2_hand_size; p1_deck_size; p2_deck_size; p1_pokemon_in_play; p2_pokemon_in_play; p1_active_hp; p2_active_hp; p1_total_hp; p2_total_hp; p1_total_energy; p2_total_energy; p1_active_has_status; p2_active_has_status
+6,0.1,0.6486486486486487,10,p1_went_first; p1_hand_size; p1_pokemon_in_play; p1_active_hp; p1_total_hp; p2_total_hp; p2_active_has_status
+6,1.0,0.6554054054054054,17,
+6,10.0,0.6554054054054054,17,
+8,0.01,0.5,0,p1_went_first; p1_prizes_remaining; p2_prizes_remaining; p1_hand_size; p2_hand_size; p1_deck_size; p2_deck_size; p1_pokemon_in_play; p2_pokemon_in_play; p1_active_hp; p2_active_hp; p1_total_hp; p2_total_hp; p1_total_energy; p2_total_energy; p1_active_has_status; p2_active_has_status
+8,0.1,0.6805555555555556,11,p1_went_first; p2_active_hp; p1_total_hp; p2_total_hp; p1_active_has_status; p2_active_has_status
+8,1.0,0.7013888888888888,16,p1_hand_size
+8,10.0,0.6944444444444444,17,
+10,0.01,0.5294117647058824,1,p1_went_first; p1_prizes_remaining; p1_hand_size; p2_hand_size; p1_deck_size; p2_deck_size; p1_pokemon_in_play; p2_pokemon_in_play; p1_active_hp; p2_active_hp; p1_total_hp; p2_total_hp; p1_total_energy; p2_total_energy; p1_active_has_status; p2_active_has_status
+10,0.1,0.7058823529411765,10,p1_hand_size; p1_deck_size; p2_deck_size; p2_pokemon_in_play; p1_active_hp; p1_total_hp; p2_total_hp
+10,1.0,0.6890756302521008,16,p1_total_hp
+10,10.0,0.6890756302521008,17,
+12,0.01,0.5632183908045977,0,p1_went_first; p1_prizes_remaining; p2_prizes_remaining; p1_hand_size; p2_hand_size; p1_deck_size; p2_deck_size; p1_pokemon_in_play; p2_pokemon_in_play; p1_active_hp; p2_active_hp; p1_total_hp; p2_total_hp; p1_total_energy; p2_total_energy; p1_active_has_status; p2_active_has_status
+12,0.1,0.6896551724137931,9,p1_went_first; p1_hand_size; p1_deck_size; p2_deck_size; p1_total_hp; p2_total_hp; p1_active_has_status; p2_active_has_status
+12,1.0,0.6781609195402298,16,p1_went_first
+12,10.0,0.6781609195402298,16,p1_went_first
+14,0.01,0.6379310344827587,0,p1_went_first; p1_prizes_remaining; p2_prizes_remaining; p1_hand_size; p2_hand_size; p1_deck_size; p2_deck_size; p1_pokemon_in_play; p2_pokemon_in_play; p1_active_hp; p2_active_hp; p1_total_hp; p2_total_hp; p1_total_energy; p2_total_energy; p1_active_has_status; p2_active_has_status
+14,0.1,0.7758620689655172,8,p1_went_first; p1_hand_size; p1_deck_size; p2_pokemon_in_play; p1_active_hp; p1_total_hp; p2_total_hp; p1_active_has_status; p2_active_has_status
+14,1.0,0.8448275862068966,15,p1_went_first; p2_active_has_status
+14,10.0,0.8448275862068966,16,p1_went_first

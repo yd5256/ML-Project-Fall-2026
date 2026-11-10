@@ -67,8 +67,15 @@ def main():
      exclude = ["game_id", "source_date", "turn", "p1_wins", "split"]
      full_features = [col for col in df.columns if col not in exclude]
      
-     # Store accuracy results for each turn
+     # Store experiment results
      accuracy_rows = []
+     coefficent_rows = []
+     importance_rows = []
+     depth_rows = []
+     l1_rows = []
+     
+     # Turns used for detailed analysis
+     selected_turns = [2, 4, 6, 8, 10, 12, 14]
      
      # Evaluate each turn
      for turn in turns:
@@ -101,18 +108,16 @@ def main():
           tree_model = train_tree(train[full_features], y_train)
           tree_predictions = tree_model.predict(val[full_features])
           
-          # Examine feature coefficients at selected turns
-          if turn in [2, 4, 6, 8]:
+          # Store logistic regression coefficients
+          if turn in selected_turns:
                coefficients = full_model.named_steps["logisticregression"].coef_[0]
                
-               feature_weights = pd.Series(coefficients, index=full_features)
-               feature_weights = feature_weights.reindex(
-                    feature_weights.abs().sort_values(ascending=False).index
-               )
-               
-               print(f"\nTurn {turn} feature coefficients:")
-               print(feature_weights.round(3))
-               print()
+               for feature, weight in zip(full_features, coefficients):
+                    coefficent_rows.append({
+                         "turn": turn,
+                         "feature": feature,
+                         "coefficient": weight
+                    })
                
           # Prize-card baseline predictions
           baseline_predictions = prize_baseline(
@@ -139,69 +144,53 @@ def main():
                "decision_tree": tree_accuracy
           })
           
-          # Compare decision tree depths at selected turns
-          if turn in [2, 4, 6, 8, 10, 12, 14]:
-               print(f"Decision tree depth comparison at Turn {turn}:")
-               
+          # Compare decision tree depths
+          if turn in selected_turns:
                for depth in [2, 3, 4, 5, 6]:
                     depth_model = train_tree(train[full_features], y_train, max_depth=depth)
                     
                     train_accuracy = depth_model.score(train[full_features], y_train)
                     val_accuracy = depth_model.score(val[full_features], y_val)
                     
-                    print(
-                         f"Depth {depth}: "
-                         f"Training = {train_accuracy:.3f}, "
-                         f"Validation = {val_accuracy:.3f}"
-                    )
+                    depth_rows.append({
+                         "turn": turn,
+                         "depth": depth,
+                         "train_accuracy": val_accuracy,
+                         "validation_accuracy": val_accuracy
+                    })
                     
-               print()
-               
-          # Examine decision tree feature importance at selected turns
-          if turn in [2, 4, 6, 8, 10, 12, 14]:
-               importances = pd.Series(tree_model.feature_importances_, index=full_features)
-               
-               importances = importances.sort_values(ascending=False)
-               
-               print(f"Turn {turn} decision tree feature importance: ")
-               print(importances.head(5).round(3))
-               print()
-               
-          # Examine features eliminated by L1 regularization
-          if turn in [2, 4, 6, 8, 10, 12, 14]:
-               coefficients = l1_model.named_steps["logisticregression"].coef_[0]
-               
-               zero_features = [
-                    feature
-                    for feature, weight in zip(full_features, coefficients)
-                    if weight == 0
-               ]
-               
-               print(f"Turn {turn} L1 feature selection: ")
-               print(f"Nonzero features: {len(full_features) - len(zero_features)}/{len(full_features)}")
-               print(f"Zero-weight features: {zero_features}")
-               print()
-               
-          # Compare L1 regularization strengths at selected turns
-          if turn in [2, 4, 6, 8, 10, 12, 14]:
-               print(f"Turn {turn} L1 regularization comparison: ")
-               
+          # Store decision tree feature importance
+          if turn in selected_turns:
+               for feature, importance in zip(full_features, tree_model.feature_importances_):
+                    importance_rows.append({
+                         "turn": turn,
+                         "feature": feature,
+                         "importance": importance
+                    })
+                    
+          # Compare L1 regularization strengths
+          if turn in selected_turns:
                for C in [0.01, 0.1, 1.0, 10.0]:
                     model = train_l1_logistic(train[full_features], y_train, C=C)
                     
                     val_accuracy = model.score(val[full_features], y_val)
-               
+                    
                     coefficients = model.named_steps["logisticregression"].coef_[0]
-                    nonzero_features = np.count_nonzero(coefficients)
-               
-                    print(
-                         f"C={C}: "
-                         f"Validation = {val_accuracy:.3f}, "
-                         f"Features = {nonzero_features}/{len(full_features)}"
-                    )
-               
-               print()
-               
+                    
+                    zero_features = [
+                         feature
+                         for feature, weight in zip(full_features, coefficients)
+                         if weight == 0
+                    ]
+                    
+                    l1_rows.append({
+                         "turn": turn,
+                         "C": C,
+                         "validation_accuracy": val_accuracy,
+                         "nonzero_features": np.count_nonzero(coefficients),
+                         "zero_features": "; ".join(zero_features)
+                    })
+                    
      # Create results directory
      results_dir = Path("results")
      results_dir.mkdir(exist_ok=True)
@@ -209,7 +198,13 @@ def main():
      # Save accuracy results
      accuracy_df = pd.DataFrame(accuracy_rows)
      accuracy_df.to_csv(results_dir / "model_accuracy.csv", index=False)
-          
+     
+     # Save detailed experiment results
+     pd.DataFrame(coefficent_rows).to_csv(results_dir / "logistic_coefficients.csv", index=False)
+     pd.DataFrame(importance_rows).to_csv(results_dir / "tree_importance.csv", index=False)
+     pd.DataFrame(depth_rows).to_csv(results_dir / "tree_depth_comparison.csv", index=False)
+     pd.DataFrame(l1_rows).to_csv(results_dir / "l1_regularization.csv", index=False)
+     
      # Print accuracy summary
      print("\nValidation accuracy by turn:")
      print(accuracy_df.round(3).to_string(index=False))
