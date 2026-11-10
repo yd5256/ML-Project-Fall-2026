@@ -21,7 +21,7 @@ def train_logistic(X_train, y_train):
      
      return model
 
-def train_l1_logistic(X_train, y_train):
+def train_l1_logistic(X_train, y_train, C=1.0):
      """
      Train logistic regression using L1 regularization
      """
@@ -30,7 +30,7 @@ def train_l1_logistic(X_train, y_train):
           LogisticRegression(
                l1_ratio=1.0,
                solver="liblinear",
-               C=1.0,
+               C=C,
                max_iter=1000,
                random_state=42
           )
@@ -161,6 +161,7 @@ def main():
                print(importances.head(5).round(3))
                print()
                
+          # Examine features eliminated by L1 regularization
           if turn in [2, 4, 6, 8, 10, 12, 14]:
                coefficients = l1_model.named_steps["logisticregression"].coef_[0]
                
@@ -173,6 +174,26 @@ def main():
                print(f"Turn {turn} L1 feature selection: ")
                print(f"Nonzero features: {len(full_features) - len(zero_features)}/{len(full_features)}")
                print(f"Zero-weight features: {zero_features}")
+               print()
+               
+          # Compare L1 regularization strengths at selected turns
+          if turn in [2, 4, 6, 8, 10, 12, 14]:
+               print(f"Turn {turn} L1 regularization comparison: ")
+               
+               for C in [0.01, 0.1, 1.0, 10.0]:
+                    model = train_l1_logistic(train[full_features], y_train, C=C)
+                    
+                    val_accuracy = model.score(val[full_features], y_val)
+               
+                    coefficients = model.named_steps["logisticregression"].coef_[0]
+                    nonzero_features = np.count_nonzero(coefficients)
+               
+                    print(
+                         f"C={C}: "
+                         f"Validation = {val_accuracy:.3f}, "
+                         f"Features = {nonzero_features}/{len(full_features)}"
+                    )
+               
                print()
                
                
