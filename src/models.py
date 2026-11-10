@@ -21,11 +21,11 @@ def train_logistic(X_train, y_train):
      
      return model
 
-def train_tree(X_train, y_train):
+def train_tree(X_train, y_train, max_depth=3):
      """
      Train a decision tree classifier using game-state features.
      """
-     model = DecisionTreeClassifier(max_depth=3, random_state=42)
+     model = DecisionTreeClassifier(max_depth=max_depth, random_state=42)
      model.fit(X_train, y_train)
      
      return model
@@ -88,7 +88,6 @@ def main():
                print(feature_weights.round(3))
                print()
                
-          
           # Prize-card baseline predictions
           baseline_predictions = prize_baseline(
           val["p1_prizes_remaining"],
@@ -109,6 +108,24 @@ def main():
           print(f"Full-feature logistic accuracy: {full_accuracy:.3f}")
           print(f"Decision tree accuracy: {tree_accuracy:.3f}")
           print()
+          
+          # Compare decision tree depths at selected turns
+          if turn in [4, 8, 12]:
+               print(f"Decision tree depth comparison at Turn {turn}:")
+               
+               for depth in [2, 3, 4, 5, 6]:
+                    depth_model = train_tree(train[full_features], y_train, max_depth=depth)
+                    
+                    train_accuracy = depth_model.score(train[full_features], y_train)
+                    val_accuracy = depth_model.score(val[full_features], y_val)
+                    
+                    print(
+                         f"Depth {depth}: "
+                         f"Training = {train_accuracy:.3f}, "
+                         f"Validation = {val_accuracy:.3f}"
+                    )
+                    
+               print()
           
 
 if __name__ == "__main__":
