@@ -21,15 +21,15 @@ def train_logistic(X_train, y_train):
      return model
  
 def main():
-     # Load mock data and game splits
-     df = pd.read_csv("data/mock/mock_game_states.csv")
-     splits = pd.read_csv("data/mock/mock_game_splits.csv")
+     # Load processed game states
+     df = pd.read_csv("data/processed/game_states.csv")
+     splits = pd.read_csv("data/processed/game_splits.csv")
      
      # Assign each game to its train/validation/test split
      df = df.merge(splits, on="game_id", validate="many_to_one")
      
      # Get all available turns
-     turns = sorted(df["turn"].unique())
+     turns = list(range(1, 16))
      
      # Define feature sets
      prize_features = ["p1_prizes_remaining", "p2_prizes_remaining"]
