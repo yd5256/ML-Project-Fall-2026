@@ -1,3 +1,4 @@
+from pathlib import Path
 import numpy as np
 import pandas as pd
 from sklearn.pipeline import make_pipeline
@@ -66,6 +67,9 @@ def main():
      exclude = ["game_id", "source_date", "turn", "p1_wins", "split"]
      full_features = [col for col in df.columns if col not in exclude]
      
+     # Store accuracy results for each turn
+     accuracy_rows = []
+     
      # Evaluate each turn
      for turn in turns:
           turn_data = df[df["turn"] == turn]
@@ -123,15 +127,17 @@ def main():
           tree_accuracy = np.mean(tree_predictions == y_val)
           l1_accuracy = np.mean(l1_predictions == y_val)
           
-          print(f"Turn: {turn}")
-          print(f"Training examples: {len(train)}")
-          print(f"Validation examples: {len(val)}")
-          print(f"Prize baseline accuracy: {baseline_accuracy:.3f}")
-          print(f"Prize-only logistic accuracy: {prize_accuracy:.3f}")
-          print(f"Full-feature logistic accuracy: {full_accuracy:.3f}")
-          print(f"Decision tree accuracy: {tree_accuracy:.3f}")
-          print(f"L1 logistic accuracy: {l1_accuracy:.3f}")
-          print()
+          # Store accuracy results
+          accuracy_rows.append({
+               "turn": turn,
+               "train_games": len(train),
+               "validation_games": len(val),
+               "prize_baseline": baseline_accuracy,
+               "prize_logistic": prize_accuracy,
+               "l2_logistic": full_accuracy,
+               "l1_logistic": l1_accuracy,
+               "decision_tree": tree_accuracy
+          })
           
           # Compare decision tree depths at selected turns
           if turn in [2, 4, 6, 8, 10, 12, 14]:
@@ -195,6 +201,20 @@ def main():
                     )
                
                print()
+               
+     # Create results directory
+     results_dir = Path("results")
+     results_dir.mkdir(exist_ok=True)
+          
+     # Save accuracy results
+     accuracy_df = pd.DataFrame(accuracy_rows)
+     accuracy_df.to_csv(results_dir / "model_accuracy.csv", index=False)
+          
+     # Print accuracy summary
+     print("\nValidation accuracy by turn:")
+     print(accuracy_df.round(3).to_string(index=False))
+     print("\nSaved to results/model_accuracy.csv")
+          
                
                
 if __name__ == "__main__":
