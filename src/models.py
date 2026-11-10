@@ -110,7 +110,7 @@ def main():
           print()
           
           # Compare decision tree depths at selected turns
-          if turn in [4, 8, 12]:
+          if turn in [2, 4, 6, 8, 10, 12, 14]:
                print(f"Decision tree depth comparison at Turn {turn}:")
                
                for depth in [2, 3, 4, 5, 6]:
@@ -126,6 +126,17 @@ def main():
                     )
                     
                print()
+               
+          # Examine decision tree feature importance at selected turns
+          if turn in [2, 4, 6, 8, 10, 12, 14]:
+               importances = pd.Series(tree_model.feature_importances_, index=full_features)
+               
+               importances = importances.sort_values(ascending=False)
+               
+               print(f"Turn {turn} decision tree feature importance: ")
+               print(importances.head(5).round(3))
+               print()
+               
           
 
 if __name__ == "__main__":
