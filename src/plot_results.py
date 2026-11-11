@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 RESULTS_DIR = REPO_ROOT / "results"
-FIGURES_DIR = REPO_ROOT / "figures"
+FIGURES_DIR = REPO_ROOT / "figures" / "model_results"
 
 
 def plot_accuracy():
@@ -86,7 +86,7 @@ def plot_ablation():
 
 
 def main():
-    FIGURES_DIR.mkdir(exist_ok=True)
+    FIGURES_DIR.mkdir(parents=True, exist_ok=True)
 
     plot_accuracy()
     plot_ablation()
