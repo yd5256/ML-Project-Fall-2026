@@ -83,6 +83,62 @@ def plot_ablation():
     plt.tight_layout()
     plt.savefig(FIGURES_DIR / "feature_ablation.png", dpi=300)
     plt.close()
+    
+
+def plot_cross_validation():
+    """
+    Compare mean cross-validation accuracy across model configurations.
+    """
+    df = pd.read_csv(RESULTS_DIR / "cross_validation.csv")
+
+    # Calculate mean accuracy and standard deviation across folds
+    summary = (
+        df.groupby(["turn", "model", "configuration"])["accuracy"]
+        .agg(["mean", "std"])
+        .reset_index()
+    )
+
+    # Make readable labels for each model configuration
+    summary["label"] = summary.apply(
+        lambda row: (
+            f"NN ({row['configuration'].split('=')[1]} neurons)"
+            if row["model"] == "neural_network"
+            else {
+                "l1_logistic": "L1 Logistic",
+                "l2_logistic": "L2 Logistic",
+                "decision_tree": "Decision Tree"
+            }[row["model"]]
+        ),
+        axis=1
+    )
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    for label, group in summary.groupby("label"):
+        group = group.sort_values("turn")
+
+        ax.errorbar(
+            group["turn"],
+            group["mean"],
+            yerr=group["std"],
+            marker="o",
+            capsize=4,
+            linewidth=2,
+            label=label
+        )
+
+    ax.set_xlabel("Game turn")
+    ax.set_ylabel("Mean cross-validation accuracy")
+    ax.set_title("5-Fold Cross-Validation: Model Comparison")
+    ax.set_xticks(sorted(df["turn"].unique()))
+    ax.set_ylim(0.45, 0.85)
+    ax.grid(alpha=0.3)
+    ax.legend()
+
+    fig.tight_layout()
+    fig.savefig(FIGURES_DIR / "cross_validation.png", dpi=300)
+    plt.close(fig)
+
 
 
 def main():
@@ -90,8 +146,9 @@ def main():
 
     plot_accuracy()
     plot_ablation()
+    plot_cross_validation()
 
-    print("Saved figures to figures/")
+    print("Saved figures to figures/model_results/")
 
 
 if __name__ == "__main__":
