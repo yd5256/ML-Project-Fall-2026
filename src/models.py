@@ -1,6 +1,6 @@
 """
 models.py — Model training and experiments for Pokémon TCG winner prediction.
-Owner: Dominic
+Owner: Dom
 
 What is in here:
   1. Prize-card baseline
@@ -17,6 +17,7 @@ Run from the repository root:
 Results are saved in results/.
 """
 
+import tensorflow as tf
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -67,7 +68,48 @@ def train_tree(X_train, y_train, max_depth=3):
      model.fit(X_train, y_train)
      
      return model
+
+def train_neural_network(X_train, y_train):
+     """
+     Train a small neural network using game-state features.
+     """
+     tf.keras.utils.set_random_seed(42)
      
+     model = tf.keras.Sequential([
+          tf.keras.layers.Input(shape=(X_train.shape[1],)),
+          tf.keras.layers.Dense(16, activation="relu"),
+          tf.keras.layers.Dense(1, activation="sigmoid")
+     ])
+     
+     model.compile(
+          optimizer="adam",
+          loss="binary_crossentropy",
+          metrics=["accuracy"]
+     )
+     
+     rng = np.random.default_rng(42)
+     indices = rng.permutation(len(X_train))
+     
+     X_train = X_train[indices]
+     y_train = np.asarray(y_train)[indices]
+     
+     model.fit(
+          X_train,
+          y_train, 
+          epochs=100,
+          batch_size=32,
+          validation_split=0.2,
+          callbacks=[
+               tf.keras.callbacks.EarlyStopping(
+                    monitor="val_loss",
+                    patience=10,
+                    restore_best_weights=True
+               )
+          ],
+          verbose=0
+     )
+     
+     return model
  
 def main():
      # Load processed game states
@@ -142,6 +184,19 @@ def main():
           tree_model = train_tree(train[full_features], y_train)
           tree_predictions = tree_model.predict(val[full_features])
           
+          # Scale features for the neural network
+          scaler = StandardScaler()
+          
+          X_train_scaled = scaler.fit_transform(train[full_features])
+          X_val_scaled = scaler.transform(val[full_features])
+          
+          # Train neural network
+          nn_model = train_neural_network(X_train_scaled, y_train)
+          
+          # Predict probabilities and convert to 0/1 labels
+          nn_probabilities = nn_model.predict(X_val_scaled, verbose=0)
+          nn_predictions = (nn_probabilities.ravel() >= 0.5).astype(int)
+          
           # Store logistic regression coefficients
           if turn in selected_turns:
                coefficients = full_model.named_steps["logisticregression"].coef_[0]
@@ -165,6 +220,7 @@ def main():
           full_accuracy = np.mean(full_predictions == y_val)
           tree_accuracy = np.mean(tree_predictions == y_val)
           l1_accuracy = np.mean(l1_predictions == y_val)
+          nn_accuracy = np.mean(nn_predictions == y_val)
           
           # Store accuracy results
           accuracy_rows.append({
@@ -175,7 +231,8 @@ def main():
                "prize_logistic": prize_accuracy,
                "l2_logistic": full_accuracy,
                "l1_logistic": l1_accuracy,
-               "decision_tree": tree_accuracy
+               "decision_tree": tree_accuracy,
+               "neural_network": nn_accuracy
           })
           
           # Feature ablation experiments
@@ -272,7 +329,6 @@ def main():
      print(accuracy_df.round(3).to_string(index=False))
      print("\nSaved to results/model_accuracy.csv")
           
-               
                
 if __name__ == "__main__":
     main()

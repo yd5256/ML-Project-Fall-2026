@@ -29,7 +29,8 @@ def plot_accuracy():
         "prize_baseline": "Prize baseline",
         "l2_logistic": "L2 logistic regression",
         "l1_logistic": "L1 logistic regression",
-        "decision_tree": "Decision tree"
+        "decision_tree": "Decision tree",
+        "neural_network": "Neural Network"
     }
 
     for column, label in models.items():
