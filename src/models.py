@@ -17,13 +17,15 @@ Run from the repository root:
 Results are saved in results/.
 """
 
-import tensorflow as tf
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
+import tensorflow as tf
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import StratifiedKFold, train_test_split
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import LogisticRegression
 from sklearn.tree import DecisionTreeClassifier
 
 def prize_baseline(p1_prizes, p2_prizes):
@@ -69,47 +71,157 @@ def train_tree(X_train, y_train, max_depth=3):
      
      return model
 
-def train_neural_network(X_train, y_train):
+
+def train_neural_network(X_train, y_train, hidden_units=16):
+    """
+    Train a neural network with scaling and early stopping.
+    """
+    tf.keras.utils.set_random_seed(42)
+
+    X_train = np.asarray(X_train)
+    y_train = np.asarray(y_train)
+
+    # Separate data for training and early stopping
+    X_fit, X_stop, y_fit, y_stop = train_test_split(
+        X_train,
+        y_train,
+        test_size=0.2,
+        stratify=y_train,
+        random_state=42
+    )
+
+    # Fit scaler only on actual training examples
+    scaler = StandardScaler()
+    X_fit_scaled = scaler.fit_transform(X_fit)
+    X_stop_scaled = scaler.transform(X_stop)
+
+    model = tf.keras.Sequential([
+        tf.keras.layers.Input(shape=(X_train.shape[1],)),
+        tf.keras.layers.Dense(hidden_units, activation="relu"),
+        tf.keras.layers.Dense(1, activation="sigmoid")
+    ])
+
+    model.compile(
+        optimizer="adam",
+        loss="binary_crossentropy",
+        metrics=["accuracy"]
+    )
+
+    model.fit(
+        X_fit_scaled,
+        y_fit,
+        validation_data=(X_stop_scaled, y_stop),
+        epochs=100,
+        batch_size=32,
+        callbacks=[
+            tf.keras.callbacks.EarlyStopping(
+                monitor="val_loss",
+                patience=10,
+                restore_best_weights=True
+            )
+        ],
+        verbose=0
+    )
+
+    return model, scaler
+
+
+def cross_validate_models(train, full_features, turn):
      """
-     Train a small neural network using game-state features.
+     Compare model configurations using 5-fold cross-validation
      """
-     tf.keras.utils.set_random_seed(42)
+     X = train[full_features].to_numpy()
+     y = train["p1_wins"].to_numpy()
      
-     model = tf.keras.Sequential([
-          tf.keras.layers.Input(shape=(X_train.shape[1],)),
-          tf.keras.layers.Dense(16, activation="relu"),
-          tf.keras.layers.Dense(1, activation="sigmoid")
-     ])
-     
-     model.compile(
-          optimizer="adam",
-          loss="binary_crossentropy",
-          metrics=["accuracy"]
+     kfold = StratifiedKFold(
+          n_splits=5,
+          shuffle=True,
+          random_state=42
      )
      
-     rng = np.random.default_rng(42)
-     indices = rng.permutation(len(X_train))
+     results = []
      
-     X_train = X_train[indices]
-     y_train = np.asarray(y_train)[indices]
+     for fold, (train_idx, val_idx) in enumerate(kfold.split(X, y), start=1):
+          X_fold_train = X[train_idx]
+          X_fold_val = X[val_idx]
+          y_fold_train = y[train_idx]
+          y_fold_val = y[val_idx]
+          
+          # Scale using only the current fold's training data
+          scaler = StandardScaler()
+          X_train_scaled = scaler.fit_transform(X_fold_train)
+          X_val_scaled = scaler.transform(X_fold_val)
+          
+          # Logistic Regression (L2)
+          l2_model = LogisticRegression(max_iter=1000)
+          l2_model.fit(X_train_scaled, y_fold_train)
+          l2_accuracy = l2_model.score(X_val_scaled, y_fold_val)
+          
+          results.append({
+               "turn": turn,
+               "fold": fold,
+               "model": "l2_logistic",
+               "configuration": "C=1.0",
+               "accuracy": l2_accuracy
+          })
      
-     model.fit(
-          X_train,
-          y_train, 
-          epochs=100,
-          batch_size=32,
-          validation_split=0.2,
-          callbacks=[
-               tf.keras.callbacks.EarlyStopping(
-                    monitor="val_loss",
-                    patience=10,
-                    restore_best_weights=True
-               )
-          ],
-          verbose=0
-     )
-     
-     return model
+          # Logistic regression (L1)
+          l1_model = LogisticRegression(
+               l1_ratio=1.0,
+               solver="liblinear",
+               max_iter=1000,
+               random_state=42
+          )
+          l1_model.fit(X_train_scaled, y_fold_train)
+          l1_accuracy = l1_model.score(X_val_scaled, y_fold_val)
+
+          results.append({
+               "turn": turn,
+               "fold": fold,
+               "model": "l1_logistic",
+               "configuration": "C=1.0",
+               "accuracy": l1_accuracy
+          })
+
+          # Decision tree
+          tree_model = DecisionTreeClassifier(
+               max_depth=3,
+               random_state=42
+          )
+          tree_model.fit(X_fold_train, y_fold_train)
+          tree_accuracy = tree_model.score(X_fold_val, y_fold_val)
+
+          results.append({
+               "turn": turn,
+               "fold": fold,
+               "model": "decision_tree",
+               "configuration": "depth=3",
+               "accuracy": tree_accuracy
+          })
+
+          # Neural networks with different hidden layer sizes
+          for hidden_units in [8, 16, 32]:
+               nn_model, nn_scaler = train_neural_network(
+               X_fold_train,
+               y_fold_train,
+               hidden_units=hidden_units
+          )
+
+               X_nn_val = nn_scaler.transform(X_fold_val)
+
+               probabilities = nn_model.predict(X_nn_val, verbose=0)
+               predictions = (probabilities.ravel() >= 0.5).astype(int)
+               nn_accuracy = np.mean(predictions == y_fold_val)
+
+               results.append({
+                    "turn": turn,
+                    "fold": fold,
+                    "model": "neural_network",
+                    "configuration": f"hidden_units={hidden_units}",
+                    "accuracy": nn_accuracy
+               })
+
+     return results
  
 def main():
      # Load processed game states
@@ -130,6 +242,7 @@ def main():
      
      # Store experiment results
      accuracy_rows = []
+     cv_rows = []
      coefficent_rows = []
      importance_rows = []
      depth_rows = []
@@ -168,6 +281,10 @@ def main():
           y_train = train["p1_wins"]
           y_val = val["p1_wins"]
           
+          # Cross-validation on selected turns
+          if turn in [4, 8, 12]:
+               cv_rows.extend(cross_validate_models(train, full_features, turn))
+          
           # Train Prize-only logistic regression
           prize_model = train_logistic(train[prize_features], y_train)
           prize_predictions = prize_model.predict(val[prize_features])
@@ -184,19 +301,16 @@ def main():
           tree_model = train_tree(train[full_features], y_train)
           tree_predictions = tree_model.predict(val[full_features])
           
-          # Scale features for the neural network
-          scaler = StandardScaler()
+          # Train neural network (scaling handled inside function)
+          nn_model, nn_scaler = train_neural_network(train[full_features],y_train)
+
+          # Scale validation features using the training scaler
+          X_val_scaled = nn_scaler.transform(val[full_features].to_numpy())
           
-          X_train_scaled = scaler.fit_transform(train[full_features])
-          X_val_scaled = scaler.transform(val[full_features])
-          
-          # Train neural network
-          nn_model = train_neural_network(X_train_scaled, y_train)
-          
-          # Predict probabilities and convert to 0/1 labels
+          # Predict winner
           nn_probabilities = nn_model.predict(X_val_scaled, verbose=0)
           nn_predictions = (nn_probabilities.ravel() >= 0.5).astype(int)
-          
+ 
           # Store logistic regression coefficients
           if turn in selected_turns:
                coefficients = full_model.named_steps["logisticregression"].coef_[0]
@@ -317,6 +431,9 @@ def main():
      accuracy_df = pd.DataFrame(accuracy_rows)
      accuracy_df.to_csv(results_dir / "model_accuracy.csv", index=False)
      
+     # Save cross-validation results
+     pd.DataFrame(cv_rows).to_csv(results_dir / "cross_validation.csv", index=False)
+     
      # Save detailed experiment results
      pd.DataFrame(coefficent_rows).to_csv(results_dir / "logistic_coefficients.csv", index=False)
      pd.DataFrame(importance_rows).to_csv(results_dir / "tree_importance.csv", index=False)
@@ -329,6 +446,6 @@ def main():
      print(accuracy_df.round(3).to_string(index=False))
      print("\nSaved to results/model_accuracy.csv")
           
-               
+          
 if __name__ == "__main__":
     main()
