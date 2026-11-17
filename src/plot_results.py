@@ -12,11 +12,9 @@ from pathlib import Path
 import pandas as pd
 import matplotlib.pyplot as plt
 
-
 REPO_ROOT = Path(__file__).resolve().parent.parent
 RESULTS_DIR = REPO_ROOT / "results"
 FIGURES_DIR = REPO_ROOT / "figures" / "model_results"
-
 
 def plot_accuracy():
     # Load validation accuracy results
@@ -47,7 +45,6 @@ def plot_accuracy():
 
     plt.savefig(FIGURES_DIR / "accuracy_by_turn.png", dpi=300)
     plt.close()
-
 
 def plot_ablation():
     # Load feature ablation results
@@ -84,7 +81,6 @@ def plot_ablation():
     plt.savefig(FIGURES_DIR / "feature_ablation.png", dpi=300)
     plt.close()
     
-
 def plot_cross_validation():
     """
     Compare mean cross-validation accuracy across model configurations.
@@ -138,8 +134,41 @@ def plot_cross_validation():
     fig.tight_layout()
     fig.savefig(FIGURES_DIR / "cross_validation.png", dpi=300)
     plt.close(fig)
+    
+def plot_nn_learning_curves():
+    """
+    Plot neural network training and validation loss across epochs.
+    """
+    fig, axes = plt.subplots(1, 3, figsize=(15, 4))
 
+    for ax, turn in zip(axes, [4, 8, 12]):
+        history = pd.read_csv(
+            RESULTS_DIR / f"nn_learning_curves_turn_{turn}.csv"
+        )
 
+        ax.plot(
+            history["epoch"],
+            history["train_loss"],
+            label="Training loss"
+        )
+        ax.plot(
+            history["epoch"],
+            history["val_loss"],
+            label="Validation loss"
+        )
+
+        ax.set_title(f"Turn {turn}")
+        ax.set_xlabel("Epoch")
+        ax.set_ylabel("Binary cross-entropy loss")
+        ax.grid(alpha=0.3)
+        ax.legend()
+
+    fig.tight_layout()
+    fig.savefig(
+        FIGURES_DIR / "nn_learning_curves.png",
+        dpi=300
+    )
+    plt.close(fig)
 
 def main():
     FIGURES_DIR.mkdir(parents=True, exist_ok=True)
@@ -147,6 +176,7 @@ def main():
     plot_accuracy()
     plot_ablation()
     plot_cross_validation()
+    plot_nn_learning_curves()
 
     print("Saved figures to figures/model_results/")
 

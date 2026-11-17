@@ -133,6 +133,10 @@ def train_neural_network(X_train, y_train, hidden_units=16):
      best_weights = None
      epochs_without_improvement = 0
      
+     # Track loss during training
+     train_losses = []
+     val_losses = []
+     
      # Training loop
      for epoch in range(100):
           model.train()
@@ -155,8 +159,14 @@ def train_neural_network(X_train, y_train, hidden_units=16):
           model.eval()
           
           with torch.no_grad():
+               train_logits = model(fit_x)
+               train_loss = criterion(train_logits, fit_y).item()
+               
                stop_logits = model(stop_x)
                stop_loss = criterion(stop_logits, stop_y).item()
+               
+          train_losses.append(train_loss)
+          val_losses.append(stop_loss)
                
           # Save the best model weights
           if stop_loss < best_loss:
@@ -177,7 +187,12 @@ def train_neural_network(X_train, y_train, hidden_units=16):
      model.load_state_dict(best_weights)
      model.eval()
           
-     return model, scaler
+     history = {
+          "train_loss": train_losses,
+          "val_loss": val_losses
+     }
+     
+     return model, scaler, history
 
 def predict_neural_network(model, scaler, X):
     """
@@ -274,7 +289,7 @@ def cross_validate_models(train, full_features, turn):
 
           # Neural networks with different hidden layer sizes
           for hidden_units in [8, 16, 32]:
-               nn_model, nn_scaler = train_neural_network(
+               nn_model, nn_scaler, _ = train_neural_network(
                X_fold_train,
                y_fold_train,
                hidden_units=hidden_units
@@ -377,18 +392,32 @@ def main():
           tree_predictions = tree_model.predict(val[full_features])
           
           # Train neural network (scaling handled inside function)
-          nn_model, nn_scaler = train_neural_network(train[full_features],y_train)
+          nn_model, nn_scaler, history = train_neural_network(train[full_features], y_train)
 
           nn_predictions = predict_neural_network(
                nn_model, 
                nn_scaler,
                val[full_features]
           )
- 
+                   
+          # Save neural network learning curves for Turns 4, 8, 12
+          if turn in [4, 8, 12]:
+               history_df = pd.DataFrame({
+                    "epoch": range(1, len(history["train_loss"]) + 1),
+                    "train_loss": history["train_loss"],
+                    "val_loss": history["val_loss"]
+               })
+
+               Path("results").mkdir(exist_ok=True)
+               history_df.to_csv(
+                    f"results/nn_learning_curves_turn_{turn}.csv",
+                    index=False
+               )
+
           # Store logistic regression coefficients
           if turn in selected_turns:
                coefficients = full_model.named_steps["logisticregression"].coef_[0]
-               
+
                for feature, weight in zip(full_features, coefficients):
                     coefficent_rows.append({
                          "turn": turn,
