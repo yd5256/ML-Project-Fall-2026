@@ -6,10 +6,12 @@ What is in here:
   1. Prize-card baseline
   2. Logistic regression (L2 and L1 regularization)
   3. Decision tree classifier
-  4. Per-turn validation accuracy comparisons
-  5. Feature coefficient and importance analysis
-  6. Decision tree depth and L1 regularization experiments
-  7. Feature ablation experiments
+  4. PyTorch neural network with early stopping
+  5. Per-turn validation accuracy comparisons
+  6. Five-fold cross-validation
+  7. Feature coefficient and importance analysis
+  8. Decision tree depth and L1 regularization experiments
+  9. Feature ablation experiments
 
 Run from the repository root:
   python3 src/models.py
@@ -21,12 +23,15 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import tensorflow as tf
+import torch
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import StratifiedKFold, train_test_split
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.tree import DecisionTreeClassifier
+from torch import nn
+from torch.utils.data import DataLoader, TensorDataset
+ 
 
 def prize_baseline(p1_prizes, p2_prizes):
      """
@@ -71,60 +76,128 @@ def train_tree(X_train, y_train, max_depth=3):
      
      return model
 
-
 def train_neural_network(X_train, y_train, hidden_units=16):
+     """
+     Train a PyTorch neural network with scaling and early stopping
+     """
+     torch.manual_seed(42)
+     
+     X_train = np.asarray(X_train)
+     y_train = np.asarray(y_train)
+     
+     # Separate data for training and early stopping
+     X_fit, X_stop, y_fit, y_stop = train_test_split(
+               X_train,
+               y_train,
+               test_size=0.2,
+               stratify=y_train,
+               random_state=42
+          )
+    
+     # Fit scaler only on the actual training examples
+     scaler = StandardScaler()
+     X_fit_scaled = scaler.fit_transform(X_fit)
+     X_stop_scaled = scaler.transform(X_stop)
+     
+     # Convert data to PyTorch tensors
+     fit_x = torch.tensor(X_fit_scaled, dtype=torch.float32)
+     fit_y = torch.tensor(y_fit, dtype=torch.float32).reshape(-1, 1)
+
+     stop_x = torch.tensor(X_stop_scaled, dtype=torch.float32)
+     stop_y = torch.tensor(y_stop, dtype=torch.float32).reshape(-1, 1)
+
+     # Create mini-batches
+     dataset = TensorDataset(fit_x, fit_y)
+     loader = DataLoader(
+          dataset,
+          batch_size=32,
+          shuffle=True
+     )
+     
+     # Neural network: 17 inputs -> hidden layer -> 1 output
+     model = nn.Sequential(
+          nn.Linear(X_train.shape[1], hidden_units),
+          nn.ReLU(),
+          nn.Linear(hidden_units, 1)
+     )
+     
+     # Loss function and optimizer
+     criterion = nn.BCEWithLogitsLoss()
+     optimizer = torch.optim.Adam(
+          model.parameters(),
+          lr=0.001
+     )
+     
+     # Early stopping variables
+     best_loss = float("inf")
+     best_weights = None
+     epochs_without_improvement = 0
+     
+     # Training loop
+     for epoch in range(100):
+          model.train()
+          
+          for batch_x, batch_y in loader:
+               # Clear previous gradients
+               optimizer.zero_grad()
+               
+               # Forward propagation
+               logits = model(batch_x)
+               loss = criterion(logits, batch_y)
+               
+               # Backpropagation
+               loss.backward()
+               
+               # Update weights 
+               optimizer.step()
+               
+          # Calculate loss on the early-stopping set
+          model.eval()
+          
+          with torch.no_grad():
+               stop_logits = model(stop_x)
+               stop_loss = criterion(stop_logits, stop_y).item()
+               
+          # Save the best model weights
+          if stop_loss < best_loss:
+               best_loss = stop_loss
+               best_weights = {
+                    key: value.clone()
+                    for key, value in model.state_dict().items()
+               }
+               epochs_without_improvement = 0
+          else:
+               epochs_without_improvement += 1
+               
+               # Stop after 10 epochs without improvement
+               if epochs_without_improvement >= 10:
+                    break
+               
+     # Restore weights from best epoch
+     model.load_state_dict(best_weights)
+     model.eval()
+          
+     return model, scaler
+
+def predict_neural_network(model, scaler, X):
     """
-    Train a neural network with scaling and early stopping.
+    Predict the winner using a trained PyTorch neural network.
     """
-    tf.keras.utils.set_random_seed(42)
+    # Apply the training scaler
+    X_scaled = scaler.transform(np.asarray(X))
 
-    X_train = np.asarray(X_train)
-    y_train = np.asarray(y_train)
+    # Convert features to a PyTorch tensor
+    X_tensor = torch.tensor(X_scaled, dtype=torch.float32)
 
-    # Separate data for training and early stopping
-    X_fit, X_stop, y_fit, y_stop = train_test_split(
-        X_train,
-        y_train,
-        test_size=0.2,
-        stratify=y_train,
-        random_state=42
-    )
+    model.eval()
 
-    # Fit scaler only on actual training examples
-    scaler = StandardScaler()
-    X_fit_scaled = scaler.fit_transform(X_fit)
-    X_stop_scaled = scaler.transform(X_stop)
+    # Make predictions without calculating gradients
+    with torch.no_grad():
+        logits = model(X_tensor)
+        probabilities = torch.sigmoid(logits).numpy().ravel()
 
-    model = tf.keras.Sequential([
-        tf.keras.layers.Input(shape=(X_train.shape[1],)),
-        tf.keras.layers.Dense(hidden_units, activation="relu"),
-        tf.keras.layers.Dense(1, activation="sigmoid")
-    ])
-
-    model.compile(
-        optimizer="adam",
-        loss="binary_crossentropy",
-        metrics=["accuracy"]
-    )
-
-    model.fit(
-        X_fit_scaled,
-        y_fit,
-        validation_data=(X_stop_scaled, y_stop),
-        epochs=100,
-        batch_size=32,
-        callbacks=[
-            tf.keras.callbacks.EarlyStopping(
-                monitor="val_loss",
-                patience=10,
-                restore_best_weights=True
-            )
-        ],
-        verbose=0
-    )
-
-    return model, scaler
-
+    # Convert probabilities to binary predictions
+    return (probabilities >= 0.5).astype(int)
 
 def cross_validate_models(train, full_features, turn):
      """
@@ -206,11 +279,13 @@ def cross_validate_models(train, full_features, turn):
                y_fold_train,
                hidden_units=hidden_units
           )
-
-               X_nn_val = nn_scaler.transform(X_fold_val)
-
-               probabilities = nn_model.predict(X_nn_val, verbose=0)
-               predictions = (probabilities.ravel() >= 0.5).astype(int)
+               
+               predictions = predict_neural_network(
+                    nn_model,
+                    nn_scaler,
+                    X_fold_val
+               )
+               
                nn_accuracy = np.mean(predictions == y_fold_val)
 
                results.append({
@@ -304,12 +379,11 @@ def main():
           # Train neural network (scaling handled inside function)
           nn_model, nn_scaler = train_neural_network(train[full_features],y_train)
 
-          # Scale validation features using the training scaler
-          X_val_scaled = nn_scaler.transform(val[full_features].to_numpy())
-          
-          # Predict winner
-          nn_probabilities = nn_model.predict(X_val_scaled, verbose=0)
-          nn_predictions = (nn_probabilities.ravel() >= 0.5).astype(int)
+          nn_predictions = predict_neural_network(
+               nn_model, 
+               nn_scaler,
+               val[full_features]
+          )
  
           # Store logistic regression coefficients
           if turn in selected_turns:
