@@ -216,6 +216,65 @@ def plot_dropout_comparison():
         dpi=300
     )
     plt.close(fig)
+    
+def plot_error_by_prize_group():
+    """
+    Compare L1 logistic regression accuracy by Prize-card group.
+    """
+    df = pd.read_csv(RESULTS_DIR / "error_by_prize_group.csv")
+
+    fig, ax = plt.subplots(figsize=(9, 5))
+
+    turns = [4, 8, 12]
+    width = 0.35
+
+    ahead = df[df["prize_group"] == "Either player ahead"]
+    tied = df[df["prize_group"] == "Tied"]
+
+    x = range(len(turns))
+
+    bars_ahead = ax.bar(
+        [i - width / 2 for i in x],
+        ahead["accuracy"],
+        width,
+        label="Either player ahead"
+    )
+
+    bars_tied = ax.bar(
+        [i + width / 2 for i in x],
+        tied["accuracy"],
+        width,
+        label="Tied"
+    )
+
+    # Show the number of games above each bar
+    for bars, counts in [
+        (bars_ahead, ahead["games"]),
+        (bars_tied, tied["games"])
+    ]:
+        for bar, count in zip(bars, counts):
+            ax.text(
+                bar.get_x() + bar.get_width() / 2,
+                bar.get_height() + 0.015,
+                f"n={count}",
+                ha="center",
+                fontsize=9
+            )
+
+    ax.set_xticks(list(x))
+    ax.set_xticklabels([f"Turn {t}" for t in turns])
+    ax.set_xlabel("Game turn")
+    ax.set_ylabel("Validation accuracy")
+    ax.set_title("L1 Logistic Regression Accuracy by Prize-card State")
+    ax.set_ylim(0, 1)
+    ax.legend()
+
+    fig.tight_layout()
+    fig.savefig(
+        FIGURES_DIR / "error_by_prize_group.png",
+        dpi=300
+    )
+    plt.close(fig)
 
 def main():
     FIGURES_DIR.mkdir(parents=True, exist_ok=True)
@@ -225,6 +284,7 @@ def main():
     plot_cross_validation()
     plot_nn_learning_curves()
     plot_dropout_comparison()
+    plot_error_by_prize_group()
     
     print("Saved figures to figures/model_results/")
 
