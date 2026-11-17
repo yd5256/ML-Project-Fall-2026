@@ -76,7 +76,7 @@ def train_tree(X_train, y_train, max_depth=3):
      
      return model
 
-def train_neural_network(X_train, y_train, hidden_units=16):
+def train_neural_network(X_train, y_train, hidden_units=16, dropout=0.0):
      """
      Train a PyTorch neural network with scaling and early stopping
      """
@@ -118,6 +118,7 @@ def train_neural_network(X_train, y_train, hidden_units=16):
      model = nn.Sequential(
           nn.Linear(X_train.shape[1], hidden_units),
           nn.ReLU(),
+          nn.Dropout(p=dropout),
           nn.Linear(hidden_units, 1)
      )
      
@@ -309,6 +310,31 @@ def cross_validate_models(train, full_features, turn):
                     "model": "neural_network",
                     "configuration": f"hidden_units={hidden_units}",
                     "accuracy": nn_accuracy
+               })
+               
+          # Compare dropout rates with 16 hidden neurons
+          for dropout in [0.0, 0.1, 0.2]:
+               nn_model, nn_scaler, _ = train_neural_network(
+                    X_fold_train,
+                    y_fold_train,
+                    hidden_units=16,
+                    dropout=dropout
+               )
+               
+               predictions = predict_neural_network(
+                    nn_model,
+                    nn_scaler,
+                    X_fold_val
+               )
+               
+               accuracy = np.mean(predictions == y_fold_val)
+
+               results.append({
+                    "turn": turn,
+                    "fold": fold,
+                    "model": "neural_network_dropout",
+                    "configuration": f"dropout={dropout}",
+                    "accuracy": accuracy
                })
 
      return results

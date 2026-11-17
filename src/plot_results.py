@@ -86,6 +86,7 @@ def plot_cross_validation():
     Compare mean cross-validation accuracy across model configurations.
     """
     df = pd.read_csv(RESULTS_DIR / "cross_validation.csv")
+    df = df[df["model"] != "neural_network_dropout"]
 
     # Calculate mean accuracy and standard deviation across folds
     summary = (
@@ -170,6 +171,52 @@ def plot_nn_learning_curves():
     )
     plt.close(fig)
 
+def plot_dropout_comparison():
+    """
+    Compare neural network dropout rates using 5-fold cross-validation.
+    """
+    df = pd.read_csv(RESULTS_DIR / "cross_validation.csv")
+
+    # Keep only the dropout experiment
+    df = df[df["model"] == "neural_network_dropout"]
+
+    # Calculate mean accuracy and standard deviation across folds
+    summary = (
+        df.groupby(["turn", "configuration"])["accuracy"]
+        .agg(["mean", "std"])
+        .reset_index()
+    )
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+
+    for configuration, group in summary.groupby("configuration"):
+        group = group.sort_values("turn")
+
+        ax.errorbar(
+            group["turn"],
+            group["mean"],
+            yerr=group["std"],
+            marker="o",
+            capsize=4,
+            linewidth=2,
+            label=configuration.replace("dropout=", "Dropout ")
+        )
+
+    ax.set_xlabel("Game turn")
+    ax.set_ylabel("Mean cross-validation accuracy")
+    ax.set_title("Neural Network Dropout Comparison (5-Fold CV)")
+    ax.set_xticks([4, 8, 12])
+    ax.set_ylim(0.50, 0.85)
+    ax.grid(alpha=0.3)
+    ax.legend()
+
+    fig.tight_layout()
+    fig.savefig(
+        FIGURES_DIR / "dropout_comparison.png",
+        dpi=300
+    )
+    plt.close(fig)
+
 def main():
     FIGURES_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -177,7 +224,8 @@ def main():
     plot_ablation()
     plot_cross_validation()
     plot_nn_learning_curves()
-
+    plot_dropout_comparison()
+    
     print("Saved figures to figures/model_results/")
 
 
